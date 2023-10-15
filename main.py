@@ -44,6 +44,14 @@ def get_client(client_id: int):
 def get_clients():
     return clients
 
+@app.delete("/clients/{client_id}", response_model=dict)
+def delete_client(client_id: int):
+    for i, client in enumerate(clients):
+        if client.id == client_id:
+            del clients[i]
+            return {"message": "Client deleted"}
+    raise HTTPException(status_code=404, detail="Client not found")
+
 
 @app.post("/hotel-rooms/")
 def create_hotel_room(room: HotelRoom):
