@@ -1,5 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel 
+from typing import List
 
 app = FastAPI()
 
@@ -38,6 +39,11 @@ def get_client(client_id: int):
         if client.id == client_id:
             return client
     raise HTTPException(status_code=404, detail="Client not found")
+
+@app.get("/clients/", response_model=List[Client])
+def get_clients():
+    return clients
+
 
 @app.post("/hotel-rooms/")
 def create_hotel_room(room: HotelRoom):
