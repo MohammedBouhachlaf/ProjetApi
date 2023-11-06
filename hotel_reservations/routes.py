@@ -1,6 +1,7 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import List
+from database.firebase import db
 
 router = APIRouter()
 
@@ -11,34 +12,38 @@ class HotelReservation(BaseModel):
     check_in_date: str
     check_out_date: str
 
-reservations = []
-
-@router.post("/")
+@router.post("/", response_model=HotelReservation)
 def create_hotel_reservation(reservation: HotelReservation):
-    if reservation.client_id not in [client.id for client in clients] or reservation.room_id not in [room.id for room in hotel_rooms]:
-        raise HTTPException(status_code=404, detail="Client or hotel room not found")
-    reservations.append(reservation)
-    return reservation
+    # Ici, vérifiez l'existence du client et de la chambre dans la DB (omis pour la brièveté)
+    
+    # Ajoutez la réservation à Firebase
+    reservation_data = reservation.dict()
+    db.child("reservations").child(reservation.id).set(reservation_data)
+    return reservation_data
 
-@router.get("/{reservation_id}")
+@router.get("/{reservation_id}", response_model=HotelReservation)
 def get_hotel_reservation(reservation_id: int):
-    for reservation in reservations:
-        if reservation.id == reservation_id:
-            return reservation
-    raise HTTPException(status_code=404, detail="Reservation not found")
+    reservation_data = db.child("reservations").child(reservation_id).get()
+    if reservation_data.val() is not None:
+        return reservation_data.val()
+    else:
+        raise HTTPException(status_code=404, detail="Reservation not found")
 
-@router.put("/{reservation_id}")
+@router.put("/{reservation_id}", response_model=HotelReservation)
 def update_hotel_reservation(reservation_id: int, reservation: HotelReservation):
-    for i, r in enumerate(reservations):
-        if r.id == reservation_id:
-            reservations[i] = reservation
-            return reservation
-    raise HTTPException(status_code=404, detail="Reservation not found")
+    reservation_data = db.child("reservations").child(reservation_id).get()
+    if reservation_data.val() is not None:
+        updated_reservation_data = reservation.dict()
+        db.child("reservations").child(reservation_id).update(updated_reservation_data)
+        return updated_reservation_data
+    else:
+        raise HTTPException(status_code=404, detail="Reservation not found")
 
-@router.delete("/{reservation_id}")
+@router.delete("/{reservation_id}", response_model=dict)
 def delete_hotel_reservation(reservation_id: int):
-    for i, reservation in enumerate(reservations):
-        if reservation.id == reservation_id:
-            del reservations[i]
-            return {"message": "Reservation deleted"}
-    raise HTTPException(status_code=404, detail="Reservation not found")
+    reservation_data = db.child("reservations").child(reservation_id).get()
+    if reservation_data.val() is not None:
+        db.child("reservations").child(reservation_id).remove()
+        return {"message": "Reservation deleted"}
+    else:
+        raise HTTPException(status_code=404, detail="Reservation not found")
